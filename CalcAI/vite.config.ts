@@ -5,6 +5,11 @@ import { defineConfig } from "vite"
  
 export default defineConfig({
   plugins: [react(),eslint()],
+  server: {
+    port: 5173,
+    host: true,
+    strictPort: true
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

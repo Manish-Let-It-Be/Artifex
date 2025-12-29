@@ -35,10 +35,11 @@ from constants import GEMINI_API_KEY
 genai.configure(api_key=GEMINI_API_KEY)
 
 def analyze_image(img: Image, dict_of_vars: dict):
-    model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+    model = genai.GenerativeModel(model_name="gemini-flash-latest")
     dict_of_vars_str = json.dumps(dict_of_vars, ensure_ascii=False)
     prompt = (
         f"Analyze the equation or expression in this image and return the answer according to the given rules: "
+        f"Note: The image may contain a background grid or dots; IGNORE the grid completely and focus only on the hand drawn content."
         f"Format your response with proper spacing and punctuation. "
         f"For example, instead of 'Areaofsquarewithside2is4squareunits', "
         f"write 'Area of square with side 2 is 4 square units'. "
