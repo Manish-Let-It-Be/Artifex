@@ -396,9 +396,9 @@ export default function Home() {
             });
 
             resp.data.forEach((data: Response) => {
-                //const latex = `\\(\\LARGE{${data.expr} = ${data.result}}\\)`;
+                const latex = `({${data.expr} = ${data.result}})`;
                 // NEW LINE (Allows conversational text)
-                const latex = data.result;
+                //const latex = data.result;
                 setLatexExpression(prev => [...prev, latex]);
             });
 
