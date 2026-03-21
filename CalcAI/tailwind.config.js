@@ -17,7 +17,15 @@ module.exports = {
       },
     },
     extend: {
+      fontFamily: {
+        poppins: ['Poppins', 'sans-serif'],
+      },
       colors: {
+        arooth: {
+          blue: '#0040C1',
+          light: '#EFF4FF',
+          dark: '#111827',
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

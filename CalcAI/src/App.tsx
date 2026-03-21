@@ -4,12 +4,19 @@ import { MantineProvider } from '@mantine/core';
 import '@tldraw/tldraw/tldraw.css';
 
 import Home from '@/screens/home';
+import Landing from '@/screens/landing';
 
 import '@/index.css';
 
 const paths = [
     {
         path: '/',
+        element: (
+          <Landing/>
+        ),
+    },
+    {
+        path: '/app',
         element: (
           <Home/>
         ),
