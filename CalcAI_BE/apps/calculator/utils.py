@@ -26,16 +26,17 @@
 #     for text in generated_text:
 #         print(text.split("ASSISTANT:")[-1])
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import ast
 import json
 from PIL import Image
 from constants import GEMINI_API_KEY
 
-genai.configure(api_key=GEMINI_API_KEY)
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 def analyze_image(img: Image, dict_of_vars: dict):
-    model = genai.GenerativeModel(model_name="gemini-flash-latest")
+    model = "gemini-flash-latest"
     dict_of_vars_str = json.dumps(dict_of_vars, ensure_ascii=False)
     prompt = (
         f"Analyze the equation or expression in this image and return the answer according to the given rules: "
@@ -63,7 +64,10 @@ def analyze_image(img: Image, dict_of_vars: dict):
         f"DO NOT USE BACKTICKS OR MARKDOWN FORMATTING. "
         f"PROPERLY QUOTE THE KEYS AND VALUES IN THE DICTIONARY FOR EASIER PARSING WITH Python's ast.literal_eval."
     )
-    response = model.generate_content([prompt, img])
+    response = client.models.generate_content(
+        model=model,
+        contents=[prompt, img]
+    )
     print(response.text)
     answers = []
     try:

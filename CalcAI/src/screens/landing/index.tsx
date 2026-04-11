@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -8,7 +8,7 @@ import {
     Globe, Menu, X 
 } from 'lucide-react';
 
-const navLinks = ['Home', 'About Us', 'Services', 'Works', 'Contact'];
+const navLinks = ['Home', 'About Us', 'Pricing'];
 
 export default function Landing() {
     const navigate = useNavigate();
@@ -23,6 +23,7 @@ export default function Landing() {
         <div className="font-poppins bg-white text-gray-900 overflow-x-hidden selection:bg-arooth-blue selection:text-white">
             <Navbar navigate={navigate} />
             <Hero navigate={navigate} y={yHero} />
+            <VideoSection />
             <Marquee />
             <Stats />
             <Features />
@@ -53,10 +54,8 @@ function Navbar({ navigate }: { navigate: any }) {
             >
                 <div className="max-w-7xl mx-auto px-6 md:px-12 flex items-center justify-between">
                     <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-                        <div className="w-10 h-10 bg-arooth-blue rounded-full flex items-center justify-center">
-                            <Calculator className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="text-xl font-bold tracking-tight">CalcAI.</span>
+                            <img src="/ARTIFEX.png" alt="Logo" className="w-22 h-16 text-white" />
+                        <span className="text-xl font-bold tracking-tight">Artifex.</span>
                     </div>
                     
                     <div className="hidden md:flex items-center gap-1 p-2 bg-arooth-light/50 backdrop-blur-sm rounded-full border border-arooth-blue/10">
@@ -73,7 +72,7 @@ function Navbar({ navigate }: { navigate: any }) {
                                 onClick={() => navigate('/app')}
                                 className="group flex items-center gap-2 bg-arooth-blue text-white px-6 py-3 rounded-full font-semibold hover:bg-blue-800 transition-colors shadow-lg shadow-arooth-blue/20"
                             >
-                                View All Services
+                                Get Started
                                 <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center group-hover:rotate-45 transition-transform">
                                     <ArrowUpRight className="w-3 h-3 text-white" />
                                 </div>
@@ -96,7 +95,7 @@ function Navbar({ navigate }: { navigate: any }) {
                         className="fixed inset-0 z-[100] bg-white p-6 flex flex-col"
                     >
                         <div className="flex justify-between items-center mb-12">
-                            <span className="text-xl font-bold">CalcAI.</span>
+                            <span className="text-xl font-bold">Artifex.</span>
                             <button onClick={() => setMobileMenuOpen(false)} className="p-2 bg-gray-100 rounded-full">
                                 <X className="w-6 h-6" />
                             </button>
@@ -141,7 +140,7 @@ function Hero({ navigate, y }: { navigate: any, y: any }) {
                         className="inline-flex items-center gap-2 px-5 py-2.5 bg-arooth-light rounded-full text-arooth-blue font-semibold text-sm border border-arooth-blue/10"
                     >
                         <Star className="w-4 h-4 fill-arooth-blue" />
-                        <span>The Future of Mathematics is Here</span>
+                        <span>The Smart Digital Canvas</span>
                     </motion.div>
                 </div>
 
@@ -151,9 +150,8 @@ function Hero({ navigate, y }: { navigate: any, y: any }) {
                     transition={{ duration: 0.8, delay: 0.3 }}
                     className="text-[4rem] md:text-8xl lg:text-[10rem] font-bold tracking-tighter leading-[0.9] mb-8"
                 >
-                    CALC. <span className="text-arooth-blue italic pr-4">VISION.</span><br/>
+                    ARTIFEX <span className="text-arooth-blue italic pr-4"></span><br/>
                     <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 mt-2 md:mt-4">
-                        <span>CREATE</span>
                         <div className="w-32 md:w-64 h-16 md:h-32 bg-gray-100 rounded-[100px] overflow-hidden relative shadow-inner mt-4 md:mt-0">
                             <motion.div 
                                 animate={{ rotate: 360 }}
@@ -175,7 +173,7 @@ function Hero({ navigate, y }: { navigate: any, y: any }) {
                     transition={{ duration: 0.8, delay: 0.5 }}
                     className="text-xl md:text-2xl text-gray-500 max-w-2xl mx-auto mb-12 font-medium leading-relaxed"
                 >
-                    At CalcAI, we blend advanced neural networks with intuitive strategy to build digital experiences that solve real-world problems.
+                    Artifex is an AI-driven visual reasoning workspace built to make thinking more interactive, intuitive, and intelligent.
                 </motion.p>
 
                 <motion.div 
@@ -235,10 +233,10 @@ function Stats() {
                     transition={{ duration: 0.8 }}
                 >
                     <h2 className="text-5xl md:text-7xl font-bold mb-8 leading-[1.1]">
-                        Creative <br/> <span className="text-gray-400">vision &</span> <br/> strategy.
+                        Visual <br/> <span className="text-gray-400">reasoning &</span> <br/> insights.
                     </h2>
                     <p className="text-xl text-gray-500 mb-12 max-w-md leading-relaxed">
-                        At CalcAI, we blend advanced neural networks with intuitive design to build digital experiences that solve real-world problems.
+                        Powered by a multimodal AI engine, Artifex understands drawings, handwritten text, and symbols in real time.
                     </p>
                     <div className="grid grid-cols-2 gap-8 border-t border-gray-100 pt-8">
                         <div>
@@ -302,20 +300,20 @@ function Features() {
                 <div className="grid md:grid-cols-3 gap-8">
                     <FeatureCard 
                         icon={<Brain className="w-8 h-8"/>} 
-                        title="Brand Identity" 
-                        desc="Advanced machine learning reads your handwriting just like a human math teacher would."
+                        title="Structured Insights" 
+                        desc="Transforms sketches and handwritten notes into structured insights and logical steps."
                         index={0}
                     />
                     <FeatureCard 
                         icon={<Zap className="w-8 h-8"/>} 
-                        title="UI/UX Strategy" 
-                        desc="Don't just get the answer. Understand the methodology with detailed visual steps."
+                        title="GreySpace Memory" 
+                        desc="A persistent memory layer that learns from your behavior and maintains context across sessions."
                         index={1}
                     />
                     <FeatureCard 
                         icon={<Globe className="w-8 h-8"/>} 
-                        title="Digital Marketing" 
-                        desc="No apps to install. Works flawlessly on any device straight from the browser."
+                        title="Integrated Workspace" 
+                        desc="Combine visual expression with AI-driven reasoning in a single seamless platform."
                         index={2}
                     />
                 </div>
@@ -352,7 +350,7 @@ function Showcase() {
             <div className="flex flex-col md:flex-row justify-between md:items-end mb-20 gap-8">
                 <h2 className="text-5xl md:text-7xl font-bold tracking-tight">Featured <br/> <span className="text-gray-400">Works.</span></h2>
                 <button className="flex items-center justify-center gap-2 px-8 py-4 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-full font-bold transition-colors w-max">
-                    View All Services <ArrowUpRight className="w-5 h-5"/>
+                    Get Started <ArrowUpRight className="w-5 h-5"/>
                 </button>
             </div>
 
@@ -468,9 +466,9 @@ function Footer({ navigate }: { navigate: any }) {
                             <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
                                 <Calculator className="w-6 h-6 text-arooth-blue" />
                             </div>
-                            <span className="text-3xl font-bold tracking-tight">CalcAI.</span>
+                            <span className="text-3xl font-bold tracking-tight">Artifex.</span>
                         </div>
-                        <p className="text-white/60 max-w-sm mb-12 text-lg font-medium">The most intuitive way to calculate. Built by Artifex for students, professionals, and visionaries.</p>
+                        <p className="text-white/60 max-w-sm mb-12 text-lg font-medium">An integrated intelligent workspace that can understand visual input and transform raw ideas into structured insights efficiently.</p>
                         
                         <div className="flex flex-wrap gap-4">
                             <div className="px-8 py-4 bg-white/10 rounded-full font-bold uppercase tracking-wide text-sm hover:bg-white hover:text-arooth-blue transition-colors cursor-pointer backdrop-blur-sm">Facebook</div>
@@ -507,5 +505,49 @@ function Footer({ navigate }: { navigate: any }) {
                 </div>
             </div>
         </footer>
+    );
+}
+
+function VideoSection() {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const { scrollYProgress } = useScroll({
+        target: containerRef,
+        offset: ["start start", "end end"]
+    });
+
+    // Scale the 'R' up exponentially as we scroll down to reveal the image
+    const scale = useTransform(scrollYProgress, [0, 1], [1, 150]);
+    
+    // An SVG mask of the letter 'R'
+    const svgMask = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50%' y='85%' font-family='sans-serif' font-weight='900' font-size='110' text-anchor='middle'>R</text></svg>`;
+
+    return (
+        <section ref={containerRef} className="relative h-[300vh] bg-white">
+            <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center justify-center bg-gray-50">
+                <motion.div 
+                    style={{ 
+                        scale,
+                        maskImage: `url("${svgMask}")`,
+                        WebkitMaskImage: `url("${svgMask}")`,
+                        maskSize: '30%',
+                        WebkitMaskSize: '30%',
+                        maskRepeat: 'no-repeat',
+                        WebkitMaskRepeat: 'no-repeat',
+                        maskPosition: 'center',
+                        WebkitMaskPosition: 'center',
+                    }}
+                    className="w-full h-full origin-[50%_40%] flex items-center justify-center transform-gpu"
+                >
+                    <img 
+                        src="https://cdn.prod.website-files.com/68dbb9a72b91c794d0cdd10c/69393d89707a466887665505_Banner-Image.jpg" 
+                        alt="Banner Image" 
+                        className="w-full h-full object-cover"
+                    />
+                </motion.div>
+                <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10 text-arooth-blue/20 mix-blend-multiply font-bold text-4xl tracking-[0.5em] uppercase">
+                    Scroll To Explore
+                </div>
+            </div>
+        </section>
     );
 }
