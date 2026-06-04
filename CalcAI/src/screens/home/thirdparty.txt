@@ -1,0 +1,257 @@
+import { ColorSwatch } from '@mantine/core';
+import { Button } from '@/components/ui/button';
+import { useCallback, useState } from 'react';
+import axios from 'axios';
+import { SWATCHES } from '@/constants';
+import { Tldraw, track, useEditor, Editor } from '@tldraw/tldraw';
+
+// interface GeneratedResult {
+//     expression: string;
+//     answer: string;
+// }
+
+interface Response {
+    expr: string;
+    result: string;
+    assign: boolean;
+}
+
+// Track component for color picker
+const TldrawControls = track(({ editor, onRun }: { editor: Editor | null; onRun: () => void }) => {
+    const handleColorChange = (color: string) => {
+        // Color changing functionality can be implemented later
+        // when we determine the correct tldraw API
+        console.log('Color selected:', color);
+    };
+
+    return (
+        <div className="p-4 bg-gray-900 border-b border-gray-800">
+            <div className="space-y-4">
+                {/* Colors */}
+                <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-gray-400">Colors</h3>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                        {SWATCHES.map((swatch) => (
+                            <ColorSwatch
+                                key={swatch}
+                                color={swatch}
+                                onClick={() => handleColorChange(swatch)}
+                                className="cursor-pointer hover:ring-2 ring-white transform hover:scale-110 transition-all"
+                            />
+                        ))}
+                    </div>
+                </div>
+
+                {/* Actions */}
+                <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-gray-400">Actions</h3>
+                    <div className="flex gap-2">
+                        <Button
+                            onClick={() => {
+                                if (editor) {
+                                    const shapes = editor.getCurrentPageShapes();
+                                    editor.deleteShapes(shapes.map(shape => shape.id));
+                                }
+                            }}
+                            variant="destructive"
+                            size="sm"
+                            className="flex-1"
+                        >
+                            Reset
+                        </Button>
+                        <Button
+                            onClick={onRun}
+                            variant="default"
+                            size="sm"
+                            className="flex-1 bg-blue-600 hover:bg-blue-700"
+                        >
+                            Run
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+});
+
+// Create a new component for the editor controls
+const EditorControls = () => {
+    const editor = useEditor();
+    const [dictOfVars, setDictOfVars] = useState({});
+    // const [result, setResult] = useState<GeneratedResult>();
+    const [latexExpression, setLatexExpression] = useState<Array<string>>([]);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [resultPanelWidth, setResultPanelWidth] = useState(384);
+
+    const renderLatexToCanvas = useCallback((expression: string, answer: string) => {
+        const latex = `\\(\\LARGE{${expression} = ${answer}}\\)`;
+        setLatexExpression(prev => [...prev, latex]);
+    }, []);
+
+    const runRoute = async () => {
+        if (!editor) return;
+        
+        setIsProcessing(true);
+        try {
+            // Export the current drawing as PNG
+            const shapes = editor.getCurrentPageShapes();
+            const svg = await editor.getSvg(shapes);
+            if (!svg) return;
+
+            // Convert SVG to PNG
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            const svgBlob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(svgBlob);
+            
+            img.onload = async () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx?.drawImage(img, 0, 0);
+                
+                const pngBlob = await new Promise<Blob>((resolve) => {
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(blob);
+                    }, 'image/png');
+                });
+
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    const base64data = reader.result as string;
+                    
+                    const response = await axios.post(`${import.meta.env.VITE_API_URL}/calculate`, {
+                        image: base64data,
+                        dict_of_vars: dictOfVars,
+                    });
+
+                    const resp = await response.data;
+                    resp.data.forEach((data: Response) => {
+                        if (data.assign) {
+                            setDictOfVars((prev) => ({
+                                ...prev,
+                                [data.expr]: data.result,
+                            }));
+                        }
+                    });
+
+                    resp.data.forEach((data: Response) => {
+                        renderLatexToCanvas(data.expr, data.result);
+                    });
+                };
+                
+                reader.readAsDataURL(pngBlob);
+            };
+            
+            img.src = url;
+        } catch (error) {
+            console.error('Error processing image:', error);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const ResizeHandle = () => (
+        <div
+            className="w-1 h-full cursor-col-resize bg-gray-700 hover:bg-gray-600 active:bg-gray-500"
+            onMouseDown={(e) => {
+                e.preventDefault();
+                const startX = e.pageX;
+                const startWidth = resultPanelWidth;
+
+                const handleMouseMove = (e: MouseEvent) => {
+                    const delta = startX - e.pageX;
+                    const newWidth = Math.min(Math.max(startWidth + delta, 250), window.innerWidth / 2);
+                    setResultPanelWidth(newWidth);
+                };
+
+                const handleMouseUp = () => {
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                };
+
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+            }}
+        />
+    );
+
+    return (
+        <div className="flex h-screen bg-black">
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col min-w-0">
+                {/* TLDraw Area */}
+                <div className="flex-1 relative bg-black overflow-hidden">
+                    <div style={{ width: `calc(100% - ${resultPanelWidth}px)`, height: '100%' }}>
+                        <Tldraw>
+                            <TldrawControls editor={editor} onRun={runRoute} />
+                        </Tldraw>
+                    </div>
+                </div>
+            </div>
+
+            {/* Results Panel */}
+            <div className="flex h-full" style={{ width: resultPanelWidth }}>
+                <ResizeHandle />
+                <div className="flex-1 bg-gray-900 flex flex-col">
+                    <div className="flex items-center justify-between p-4 border-b border-gray-800">
+                        <h2 className="text-lg font-semibold text-white">Results</h2>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setLatexExpression([])}
+                        >
+                            Clear
+                        </Button>
+                    </div>
+                    <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+                        {latexExpression.map((latex, index) => (
+                            <div
+                                key={index}
+                                className="p-4 bg-gray-800 rounded-lg shadow-md hover:bg-gray-750 transition-colors"
+                            >
+                                <div 
+                                    className="latex-content whitespace-pre-wrap break-words text-white"
+                                    style={{ 
+                                        wordSpacing: '0.25em',
+                                        lineHeight: '1.5',
+                                        maxWidth: '100%'
+                                    }}
+                                >
+                                    {latex.split('\\)')[0].split('\\(')[1]
+                                        .replace(/\\LARGE/g, '')
+                                        .replace(/{|}/g, '')
+                                        .split('=')
+                                        .map(part => part.trim())
+                                        .join(' = ')}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Loading Overlay */}
+            {isProcessing && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-gray-900 p-6 rounded-lg shadow-xl">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-blue-500 mx-auto" />
+                        <p className="text-white text-center mt-4">Processing...</p>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// Main component
+export default function Home() {
+    return (
+        <div className="h-screen bg-black">
+            <Tldraw>
+                <EditorControls />
+            </Tldraw>
+        </div>
+    );
+}

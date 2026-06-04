@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.py[cod]
+
+# Environment files - NEVER commit these
+.env
+.env.local
+.env.*.local
+CalcAI_BE/.env
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Vite / editor
+.vite/
+.vscode/
+.idea/
+
+# Python venv
+venv/
+.venv/
+env/
+
+# Misc
+*.log
+.DS_Store
+Thumbs.db
