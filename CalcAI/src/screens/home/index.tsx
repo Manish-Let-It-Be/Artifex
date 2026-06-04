@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/button';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { SWATCHES } from '@/constants';
 import { 
@@ -15,12 +14,8 @@ import {
     Trash2,
     X,
     ChevronLeft,
-    Loader2,
-    ImagePlus,
-    Cpu,
-    Sparkles
+    Loader2
 } from 'lucide-react';
-import ModelPicker, { ModelConfig, MODELS } from '@/components/ModelPicker';
 
 // --- Types ---
 
@@ -28,13 +23,6 @@ interface Response {
     expr: string;
     result: string;
     assign: boolean;
-    steps?: string;
-}
-
-interface ResultItem {
-    expr: string;
-    result: string;
-    steps: string;
 }
 
 interface Shape {
@@ -63,7 +51,6 @@ interface DragState {
 type Tool = 'brush' | 'eraser' | 'circle' | 'square' | 'triangle';
 
 export default function Home() {
-    const navigate = useNavigate();
     // --- Refs & State ---
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -89,17 +76,11 @@ export default function Home() {
     const [history, setHistory] = useState<Array<{ shapes: Shape[]; brushStrokes: BrushStroke[] }>>([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
     const [dictOfVars, setDictOfVars] = useState({});
-    const [results, setResults] = useState<ResultItem[]>([]);
+    const [latexExpression, setLatexExpression] = useState<Array<string>>([]);
     const [isProcessing, setIsProcessing] = useState(false);
     
     // UI State
     const [isPanelOpen, setIsPanelOpen] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [modelPickerOpen, setModelPickerOpen] = useState(false);
-    const [selectedModel, setSelectedModel] = useState<ModelConfig>(MODELS[0]);
-    const [modelApiKey, setModelApiKey] = useState('');
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const [uploadedImage, setUploadedImage] = useState<HTMLImageElement | null>(null);
 
     // --- Helpers defined before use in renderCanvas ---
     
@@ -186,16 +167,6 @@ export default function Home() {
         
         drawGrid(ctx, rect.width, rect.height);
 
-        // Draw uploaded image as background if present
-        if (uploadedImage) {
-            const scale = Math.min(rect.width / uploadedImage.width, rect.height / uploadedImage.height);
-            const imgW = uploadedImage.width * scale;
-            const imgH = uploadedImage.height * scale;
-            const imgX = (rect.width - imgW) / 2;
-            const imgY = (rect.height - imgH) / 2;
-            ctx.drawImage(uploadedImage, imgX, imgY, imgW, imgH);
-        }
-
         brushStrokes.forEach(stroke => drawStroke(ctx, stroke));
         shapes.forEach(shape => drawShapeObj(ctx, shape));
 
@@ -214,7 +185,17 @@ export default function Home() {
             };
             drawShapeObj(ctx, tempShape);
         }
-    }, [brushStrokes, shapes, currentStroke, isDraggingShape, dragStart, selectedTool, color, uploadedImage]);
+    }, [brushStrokes, shapes, currentStroke, isDraggingShape, dragStart, selectedTool, color]);
+
+    // --- MathJax Setup ---
+    useEffect(() => {
+        if (latexExpression.length > 0 && window.MathJax) {
+            setTimeout(() => {
+                window.MathJax.Hub.Queue(["Typeset", window.MathJax.Hub]);
+            }, 0);
+        }
+      
+    }, [latexExpression]);
 
     // --- Canvas Setup ---
     const initCanvas = useCallback(() => {
@@ -369,23 +350,8 @@ export default function Home() {
         setBrushStrokes([]);
         setHistory([]);
         setHistoryIndex(-1);
-        setResults([]);
+        setLatexExpression([]);
         setDictOfVars({});
-        setUploadedImage(null);
-    };
-
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => {
-            setUploadedImage(img);
-            URL.revokeObjectURL(url);
-        };
-        img.src = url;
-        // reset input so same file can be re-uploaded
-        e.target.value = '';
     };
 
    const runMath = async () => {
@@ -395,39 +361,33 @@ export default function Home() {
         setIsProcessing(true);
 
         try {
+            // 1. HIDE GRID: Clear canvas and redraw ONLY strokes/shapes (No Grid)
             const ctx = canvas.getContext('2d');
             if (ctx) {
                 const rect = canvas.getBoundingClientRect();
                 ctx.clearRect(0, 0, rect.width, rect.height);
-                ctx.fillStyle = 'grey';
+                // Background color (important for AI to see contrast)
+                ctx.fillStyle = 'grey'; 
                 ctx.fillRect(0, 0, rect.width, rect.height);
-
-                // Draw uploaded image if present
-                if (uploadedImage) {
-                    const scale = Math.min(rect.width / uploadedImage.width, rect.height / uploadedImage.height);
-                    const imgW = uploadedImage.width * scale;
-                    const imgH = uploadedImage.height * scale;
-                    const imgX = (rect.width - imgW) / 2;
-                    const imgY = (rect.height - imgH) / 2;
-                    ctx.drawImage(uploadedImage, imgX, imgY, imgW, imgH);
-                }
-
+                
+                // Draw only the user's work
                 brushStrokes.forEach(stroke => drawStroke(ctx, stroke));
                 shapes.forEach(shape => drawShapeObj(ctx, shape));
             }
 
+            // 2. CAPTURE IMAGE: Now the image has no dots, just math
             const base64Image = canvas.toDataURL('image/png');
+
+            // 3. RESTORE GRID: Immediately redraw everything including the grid
             renderCanvas();
 
+            // 4. SEND TO API
             const response = await axios.post(`${import.meta.env.VITE_API_URL}/calculate`, {
                 image: base64Image,
                 dict_of_vars: dictOfVars,
-                model_id: selectedModel.id,
-                api_key: modelApiKey || undefined,
             });
 
             const resp = response.data;
-            console.log('API response:', JSON.stringify(resp, null, 2));
             
             resp.data.forEach((data: Response) => {
                 if (data.assign) {
@@ -435,19 +395,16 @@ export default function Home() {
                 }
             });
 
-            const newResults: ResultItem[] = resp.data.map((data: Response) => ({
-                expr: data.expr,
-                result: String(data.result),
-                steps: data.steps || '',
-            }));
-            console.log('newResults:', newResults);
-            setResults(prev => [...prev, ...newResults]);
-            setError(null);
+            resp.data.forEach((data: Response) => {
+                const latex = `({${data.expr} = ${data.result}})`;
+                // NEW LINE (Allows conversational text)
+                //const latex = data.result;
+                setLatexExpression(prev => [...prev, latex]);
+            });
+
             setIsPanelOpen(true);
-        } catch (error: unknown) {
+        } catch (error) {
             console.error('API Error:', error);
-            const msg = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-            setError(msg || 'Something went wrong. Check the console.');
         } finally {
             setIsProcessing(false);
         }
@@ -455,15 +412,9 @@ export default function Home() {
     return (
         <div className="relative w-full h-screen bg-white overflow-hidden font-sans selection:bg-blue-100">
             
-            {/* Error toast */}
-            {error && (
-                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-full shadow">
-                    {error}
-                </div>
-            )}
-
             {/* --- Main Canvas Area --- */}
-            <div ref={containerRef} className="absolute inset-0 z-0">                <canvas
+            <div ref={containerRef} className="absolute inset-0 z-0">
+                <canvas
                     ref={canvasRef}
                     className="w-full h-full cursor-crosshair touch-none"
                     onMouseDown={startDrawing}
@@ -483,35 +434,9 @@ export default function Home() {
                     <div className="w-3 h-3 rounded-full bg-yellow-500" />
                     <div className="w-3 h-3 rounded-full bg-green-500" />
                     <span className="text-sm font-semibold text-gray-700 ml-2">Math Board</span>
-                    <div className="w-px h-4 bg-gray-200 mx-1" />
-                    <button
-                        onClick={() => navigate('/board')}
-                        className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-900 text-white text-xs font-semibold hover:bg-gray-700 transition-colors"
-                    >
-                        <Sparkles className="w-3 h-3" />
-                        AI Board
-                    </button>
                 </div>
 
                 <div className="flex gap-2 pointer-events-auto">
-                    <Button 
-                        variant="outline"
-                        className="rounded-full bg-white/90 shadow-sm hover:bg-gray-50 flex items-center gap-1.5 px-3 text-sm text-gray-700"
-                        onClick={() => setModelPickerOpen(true)}
-                        title="Choose AI model"
-                    >
-                        <Cpu className="w-3.5 h-3.5" />
-                        <span className="max-w-[120px] truncate">{selectedModel.name}</span>
-                    </Button>
-                    <Button 
-                        variant="outline" 
-                        size="icon" 
-                        className="rounded-full bg-white/90 shadow-sm hover:bg-gray-50"
-                        onClick={() => fileInputRef.current?.click()}
-                        title="Upload image"
-                    >
-                        <ImagePlus className="w-4 h-4 text-gray-700" />
-                    </Button>
                     <Button 
                         variant="outline" 
                         size="icon" 
@@ -652,14 +577,21 @@ export default function Home() {
                     
                     {/* Results Content */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                        {results.length === 0 ? (
+                        {latexExpression.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-gray-400 opacity-50">
                                 <Calculator className="w-12 h-12 mb-2" />
                                 <p>Draw an equation and hit Calculate</p>
                             </div>
                         ) : (
-                            results.map((item, index) => (
-                                <ResultCard key={index} item={item} />
+                            latexExpression.map((latex, index) => (
+                                <div 
+                                    key={index} 
+                                    className="p-4 bg-white rounded-2xl shadow-sm border border-gray-100 animate-in slide-in-from-right fade-in duration-300"
+                                >
+                                    <div className="text-gray-800 text-lg font-medium tracking-wide">
+                                        <div dangerouslySetInnerHTML={{ __html: latex }} /> 
+                                    </div>
+                                </div>
                             ))
                         )}
                     </div>
@@ -667,32 +599,13 @@ export default function Home() {
             </div>
 
             {/* Panel Toggle Button (When closed) */}
-            {!isPanelOpen && results.length > 0 && (
+            {!isPanelOpen && latexExpression.length > 0 && (
                 <Button
                     onClick={() => setIsPanelOpen(true)}
                     className="absolute top-1/2 right-0 transform -translate-y-1/2 rounded-l-full bg-white shadow-md border-l border-y border-gray-200 text-gray-600 z-10 pl-2 pr-4 py-6"
                 >
                     <ChevronLeft className="w-5 h-5" />
                 </Button>
-            )}
-
-            {/* Hidden file input */}
-            <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleImageUpload}
-            />
-
-            {/* Model Picker Modal */}
-            {modelPickerOpen && (
-                <ModelPicker
-                    selected={selectedModel}
-                    apiKey={modelApiKey}
-                    onSelect={(model, key) => { setSelectedModel(model); setModelApiKey(key); }}
-                    onClose={() => setModelPickerOpen(false)}
-                />
             )}
 
         </div>
@@ -713,43 +626,5 @@ function ToolButton({ active, onClick, icon }: { active: boolean, onClick: () =>
         >
             {icon}
         </button>
-    );
-}
-
-function ResultCard({ item }: { item: ResultItem }) {
-    const [open, setOpen] = useState(false);
-    const steps = item.steps
-        ? item.steps.split('\n').filter(l => l.trim() !== '')
-        : [];
-
-    return (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in slide-in-from-right fade-in duration-300">
-            <div className="p-4">
-                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Expression</p>
-                <p className="text-gray-800 text-base font-semibold">{item.expr}</p>
-                <div className="mt-2 flex items-center gap-2">
-                    <span className="text-xs text-gray-400 uppercase tracking-wide">Result</span>
-                    <span className="bg-blue-50 text-blue-700 text-sm font-bold px-3 py-0.5 rounded-full">{item.result}</span>
-                </div>
-            </div>
-            {steps.length > 0 && (
-                <>
-                    <button
-                        onClick={() => setOpen(o => !o)}
-                        className="w-full flex items-center justify-between px-4 py-2 bg-gray-50 border-t border-gray-100 text-sm text-gray-500 hover:bg-gray-100 transition-colors"
-                    >
-                        <span>{open ? 'Hide steps' : 'Show how it was solved'}</span>
-                        <span className={`transition-transform duration-200 inline-block ${open ? 'rotate-180' : ''}`}>▾</span>
-                    </button>
-                    {open && (
-                        <div className="px-4 py-3 border-t border-gray-100 space-y-2 bg-gray-50/50">
-                            {steps.map((step, i) => (
-                                <p key={i} className="text-sm text-gray-700 leading-relaxed">{step}</p>
-                            ))}
-                        </div>
-                    )}
-                </>
-            )}
-        </div>
     );
 }

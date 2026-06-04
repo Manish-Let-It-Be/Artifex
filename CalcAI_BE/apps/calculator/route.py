@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 import base64
 from io import BytesIO
 from apps.calculator.utils import analyze_image
@@ -9,17 +9,12 @@ router = APIRouter()
 
 @router.post('')
 async def run(data: ImageData):
-    try:
-        image_data = base64.b64decode(data.image.split(",")[1])
-        image = Image.open(BytesIO(image_data))
-        responses = analyze_image(
-            image,
-            dict_of_vars=data.dict_of_vars,
-            model_id=data.model_id or "gemini-2.0-flash",
-            api_key=data.api_key
-        )
-        print('response in route:', responses)
-        return {"message": "Image processed", "data": responses, "status": "success"}
-    except Exception as e:
-        print(f"Route error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    image_data = base64.b64decode(data.image.split(",")[1])  # Assumes data:image/png;base64,<data>
+    image_bytes = BytesIO(image_data)
+    image = Image.open(image_bytes)
+    responses = analyze_image(image, dict_of_vars=data.dict_of_vars)
+    data = []
+    for response in responses:
+        data.append(response)
+    print('response in route: ', data)
+    return {"message": "Image processed", "data": data, "status": "success"}

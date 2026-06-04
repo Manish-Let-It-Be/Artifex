@@ -1,123 +1,83 @@
+# import torch
+# from transformers import pipeline, BitsAndBytesConfig, AutoProcessor, LlavaForConditionalGeneration
+# from PIL import Image
+
+# # quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16)
+# quantization_config = BitsAndBytesConfig(
+#     load_in_4bit=True,
+#     bnb_4bit_compute_dtype=torch.float16
+# )
+
+
+# model_id = "llava-hf/llava-1.5-7b-hf"
+# processor = AutoProcessor.from_pretrained(model_id)
+# model = LlavaForConditionalGeneration.from_pretrained(model_id, quantization_config=quantization_config, device_map="auto")
+# # pipe = pipeline("image-to-text", model=model_id, model_kwargs={"quantization_config": quantization_config})
+
+# def analyze_image(image: Image):
+#     prompt = "USER: <image>\nAnalyze the equation or expression in this image, and return answer in format: {expr: given equation in LaTeX format, result: calculated answer}"
+
+#     inputs = processor(prompt, images=[image], padding=True, return_tensors="pt").to("cuda")
+#     for k, v in inputs.items():
+#         print(k,v.shape)
+
+#     output = model.generate(**inputs, max_new_tokens=20)
+#     generated_text = processor.batch_decode(output, skip_special_tokens=True)
+#     for text in generated_text:
+#         print(text.split("ASSISTANT:")[-1])
+
+from google import genai
+from google.genai import types
 import ast
 import json
-import base64
-import re
-from io import BytesIO
 from PIL import Image
 from constants import GEMINI_API_KEY
 
-COMBINED_PROMPT = """You are a math solver and tutor. Analyze the image and solve any mathematical expression, equation, or problem you find.
+client = genai.Client(api_key=GEMINI_API_KEY)
 
-IMPORTANT: The image may have a background grid or dots — ignore them completely. Focus only on the hand-drawn or written content.
-
-Return your response as a JSON array (no markdown, no backticks). Each item must have:
-- "expr": the expression or variable name
-- "result": the calculated answer (as a string)
-- "assign": true only if it is a variable assignment like x=4, otherwise false
-- "steps": a clear numbered step-by-step explanation of how you solved it (plain text, no markdown)
-
-Rules:
-1. Simple math (2+2, 3*4): return [{{"expr": "2+2", "result": "4", "assign": false, "steps": "1. Add 2 and 2\\n2. Result is 4"}}]
-2. Equations (x^2+2x+1=0): solve for each variable, set assign=true
-3. Variable assignments (x=4): set assign=true
-4. Word problems / graphical math: solve and explain
-5. Abstract drawings: describe in expr, name concept in result
-
-Use PEMDAS. Properly escape special characters.
-User variables available: {dict_of_vars}
-
-Return ONLY the JSON array. No other text."""
-
-
-def _pil_to_base64(img: Image.Image) -> str:
-    buf = BytesIO()
-    img.save(buf, format="PNG")
-    return base64.b64encode(buf.getvalue()).decode()
-
-
-def _gemini_call(model_id: str, api_key: str, prompt: str, img: Image.Image) -> str:
-    from google import genai
-    client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(model=model_id, contents=[prompt, img])
-    return response.text.strip()
-
-
-def _openai_call(model_id: str, api_key: str, prompt: str, img: Image.Image) -> str:
-    from openai import OpenAI
-    client = OpenAI(api_key=api_key)
-    b64 = _pil_to_base64(img)
-    response = client.chat.completions.create(
-        model=model_id,
-        messages=[{"role": "user", "content": [
-            {"type": "text", "text": prompt},
-            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}}
-        ]}],
-        max_tokens=2048
+def analyze_image(img: Image, dict_of_vars: dict):
+    model = "gemini-flash-latest"
+    dict_of_vars_str = json.dumps(dict_of_vars, ensure_ascii=False)
+    prompt = (
+        f"Analyze the equation or expression in this image and return the answer according to the given rules: "
+        f"Note: The image may contain a background grid or dots; IGNORE the grid completely and focus only on the hand drawn content."
+        f"Format your response with proper spacing and punctuation. "
+        f"For example, instead of 'Areaofsquarewithside2is4squareunits', "
+        f"write 'Area of square with side 2 is 4 square units'. "
+        f"Use proper mathematical notation and formatting. "
+        f"You have been given an image with some mathematical expressions, equations, or graphical problems, and you need to solve them. "
+        f"Note: Use the PEMDAS rule for solving mathematical expressions. PEMDAS stands for the Priority Order: Parentheses, Exponents, Multiplication and Division (from left to right), Addition and Subtraction (from left to right). Parentheses have the highest priority, followed by Exponents, then Multiplication and Division, and lastly Addition and Subtraction. "
+        f"For example: "
+        f"Q. 2 + 3 * 4 "
+        f"(3 * 4) => 12, 2 + 12 = 14. "
+        f"Q. 2 + 3 + 5 * 4 - 8 / 2 "
+        f"5 * 4 => 20, 8 / 2 => 4, 2 + 3 => 5, 5 + 20 => 25, 25 - 4 => 21. "
+        f"YOU CAN HAVE FIVE TYPES OF EQUATIONS/EXPRESSIONS IN THIS IMAGE, AND ONLY ONE CASE SHALL APPLY EVERY TIME: "
+        f"Following are the cases: "
+        f"1. Simple mathematical expressions like 2 + 2, 3 * 4, 5 / 6, 7 - 8, etc.: In this case, solve and return the answer in the format of a LIST OF ONE DICT [{{'expr': given expression, 'result': calculated answer}}]. "
+        f"2. Set of Equations like x^2 + 2x + 1 = 0, 3y + 4x = 0, 5x^2 + 6y + 7 = 12, etc.: In this case, solve for the given variable, and the format should be a COMMA SEPARATED LIST OF DICTS, with dict 1 as {{'expr': 'x', 'result': 2, 'assign': True}} and dict 2 as {{'expr': 'y', 'result': 5, 'assign': True}}. This example assumes x was calculated as 2, and y as 5. Include as many dicts as there are variables. "
+        f"3. Assigning values to variables like x = 4, y = 5, z = 6, etc.: In this case, assign values to variables and return another key in the dict called {{'assign': True}}, keeping the variable as 'expr' and the value as 'result' in the original dictionary. RETURN AS A LIST OF DICTS. "
+        f"4. Analyzing Graphical Math problems, which are word problems represented in drawing form, such as cars colliding, trigonometric problems, problems on the Pythagorean theorem, adding runs from a cricket wagon wheel, etc. These will have a drawing representing some scenario and accompanying information with the image. PAY CLOSE ATTENTION TO DIFFERENT COLORS FOR THESE PROBLEMS. You need to return the answer in the format of a LIST OF ONE DICT [{{'expr': given expression, 'result': calculated answer}}]. "
+        f"5. Detecting Abstract Concepts that a drawing might show, such as love, hate, jealousy, patriotism, or a historic reference to war, invention, discovery, quote, etc. USE THE SAME FORMAT AS OTHERS TO RETURN THE ANSWER, where 'expr' will be the explanation of the drawing, and 'result' will be the abstract concept. "
+        f"Make sure to use extra backslashes for escape characters like \\f -> \\\\f, \\n -> \\\\n, etc. "
+        f"Here is a dictionary of user-assigned variables. If the given expression has any of these variables, use its actual value from this dictionary accordingly: {dict_of_vars_str}. "
+        f"DO NOT USE BACKTICKS OR MARKDOWN FORMATTING. "
+        f"PROPERLY QUOTE THE KEYS AND VALUES IN THE DICTIONARY FOR EASIER PARSING WITH Python's ast.literal_eval."
     )
-    return response.choices[0].message.content.strip()
-
-
-def _anthropic_call(model_id: str, api_key: str, prompt: str, img: Image.Image) -> str:
-    import anthropic
-    client = anthropic.Anthropic(api_key=api_key)
-    b64 = _pil_to_base64(img)
-    response = client.messages.create(
-        model=model_id, max_tokens=2048,
-        messages=[{"role": "user", "content": [
-            {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": b64}},
-            {"type": "text", "text": prompt}
-        ]}]
+    response = client.models.generate_content(
+        model=model,
+        contents=[prompt, img]
     )
-    return response.content[0].text.strip()
-
-
-def _call_model(model_id: str, api_key: str, prompt: str, img: Image.Image) -> str:
-    if model_id.startswith("gemini"):
-        return _gemini_call(model_id, api_key or GEMINI_API_KEY, prompt, img)
-    elif model_id.startswith(("gpt", "o1", "o3")):
-        return _openai_call(model_id, api_key, prompt, img)
-    elif model_id.startswith("claude"):
-        return _anthropic_call(model_id, api_key, prompt, img)
-    else:
-        return _gemini_call(model_id, api_key or GEMINI_API_KEY, prompt, img)
-
-
-def _is_quota_error(err: str) -> bool:
-    return any(k in err for k in ["429", "RESOURCE_EXHAUSTED", "quota", "insufficient_quota", "billing"])
-
-
-def _parse_response(raw: str) -> list:
-    cleaned = re.sub(r"```(?:json)?", "", raw).strip().strip("`").strip()
+    print(response.text)
+    answers = []
     try:
-        return json.loads(cleaned)
-    except Exception:
-        pass
-    try:
-        return ast.literal_eval(cleaned)
-    except Exception:
-        pass
-    match = re.search(r'\[.*\]', cleaned, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group())
-        except Exception:
-            pass
-    print("Could not parse response:", raw[:300])
-    return []
-
-
-def analyze_image(img: Image.Image, dict_of_vars: dict, model_id: str = "gemini-2.0-flash", api_key: str = None):
-    used_key = api_key or GEMINI_API_KEY
-    prompt = COMBINED_PROMPT.format(dict_of_vars=json.dumps(dict_of_vars, ensure_ascii=False))
-
-    raw = _call_model(model_id, used_key, prompt, img)
-    print("Raw response:", raw[:500])
-
-    answers = _parse_response(raw)
+        answers = ast.literal_eval(response.text)
+    except Exception as e:
+        print(f"Error in parsing response from Gemini API: {e}")
+    print('returned answer ', answers)
     for answer in answers:
-        answer['assign'] = bool(answer.get('assign', False))
-        if 'steps' not in answer:
-            answer['steps'] = ''
-
-    print("Parsed answers:", answers)
+        if 'assign' in answer:
+            answer['assign'] = True
+        else:
+            answer['assign'] = False
     return answers

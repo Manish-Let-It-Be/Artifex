@@ -5,9 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
     ArrowRight, Calculator, Star, CheckCircle, 
     ArrowUpRight, Zap, Brain, Sparkles, 
-    Globe, Menu, X, Check
+    Globe, Menu, X 
 } from 'lucide-react';
-import { MODELS } from '@/components/ModelPicker';
 
 const navLinks = ['Home', 'About Us', 'Pricing'];
 
@@ -15,37 +14,27 @@ export default function Landing() {
     const navigate = useNavigate();
     const { scrollYProgress } = useScroll();
     const yHero = useTransform(scrollYProgress, [0, 1], [0, 300]);
-    const pricingRef = useRef<HTMLElement>(null);
 
     useEffect(() => {
         window.scrollTo(0, 0);
     }, []);
 
-    const scrollTo = (link: string) => {
-        if (link === 'Pricing') {
-            pricingRef.current?.scrollIntoView({ behavior: 'smooth' });
-        } else if (link === 'Home') {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-    };
-
     return (
         <div className="font-poppins bg-white text-gray-900 overflow-x-hidden selection:bg-arooth-blue selection:text-white">
-            <Navbar navigate={navigate} scrollTo={scrollTo} />
+            <Navbar navigate={navigate} />
             <Hero navigate={navigate} y={yHero} />
             <VideoSection />
             <Marquee />
             <Stats />
             <Features />
             <Showcase />
-            <Pricing pricingRef={pricingRef} navigate={navigate} />
             <FAQ />
             <Footer navigate={navigate} />
         </div>
     );
 }
 
-function Navbar({ navigate, scrollTo }: { navigate: any, scrollTo: (link: string) => void }) {
+function Navbar({ navigate }: { navigate: any }) {
     const [scrolled, setScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -71,7 +60,7 @@ function Navbar({ navigate, scrollTo }: { navigate: any, scrollTo: (link: string
                     
                     <div className="hidden md:flex items-center gap-1 p-2 bg-arooth-light/50 backdrop-blur-sm rounded-full border border-arooth-blue/10">
                         {navLinks.map((link) => (
-                            <button key={link} onClick={() => scrollTo(link)} className="px-6 py-2.5 rounded-full text-sm font-semibold text-gray-600 hover:text-arooth-blue hover:bg-white transition-all">
+                            <button key={link} className="px-6 py-2.5 rounded-full text-sm font-semibold text-gray-600 hover:text-arooth-blue hover:bg-white transition-all">
                                 {link}
                             </button>
                         ))}
@@ -415,163 +404,6 @@ function Showcase() {
                     </div>
                     <div className="absolute top-8 left-8 w-16 h-16 bg-white rounded-full flex items-center justify-center text-xl font-bold text-gray-900">02</div>
                 </motion.div>
-            </div>
-        </section>
-    );
-}
-
-function Pricing({ pricingRef, navigate }: { pricingRef: React.RefObject<HTMLElement>, navigate: any }) {
-    const PROVIDER_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-        Google:    { bg: 'bg-blue-50',   text: 'text-blue-600',   border: 'border-blue-100' },
-        OpenAI:    { bg: 'bg-green-50',  text: 'text-green-600',  border: 'border-green-100' },
-        Anthropic: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-100' },
-        Custom:    { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100' },
-    };
-
-    return (
-        <section ref={pricingRef} className="py-32 px-6 md:px-12 bg-[#0a0a0a] mx-4 md:mx-12 my-12 rounded-[60px] overflow-hidden relative">
-            {/* Background glow */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-arooth-blue/20 blur-[120px] rounded-full pointer-events-none" />
-
-            <div className="max-w-7xl mx-auto relative z-10">
-                {/* Header */}
-                <div className="text-center mb-20">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        className="inline-flex items-center gap-2 px-5 py-2 bg-white/10 rounded-full text-white/70 text-sm font-semibold mb-6 border border-white/10"
-                    >
-                        <Sparkles className="w-4 h-4" />
-                        <span>AI Models</span>
-                    </motion.div>
-                    <motion.h2
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 0.1 }}
-                        className="text-5xl md:text-7xl font-bold text-white tracking-tight mb-6"
-                    >
-                        Choose your <br /><span className="text-white/30 italic">intelligence.</span>
-                    </motion.h2>
-                    <motion.p
-                        initial={{ opacity: 0 }}
-                        whileInView={{ opacity: 1 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 0.2 }}
-                        className="text-white/40 text-xl max-w-xl mx-auto font-medium"
-                    >
-                        From free to frontier — pick the model that fits your problem.
-                    </motion.p>
-                </div>
-
-                {/* Model cards */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {MODELS.map((model, i) => {
-                        const pc = PROVIDER_COLORS[model.provider];
-                        const isHighlighted = model.badge === 'Most Powerful' || model.badge === 'Best Reasoning';
-                        return (
-                            <motion.div
-                                key={model.id}
-                                initial={{ opacity: 0, y: 30 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.5, delay: i * 0.08 }}
-                                className={`relative rounded-3xl p-6 border flex flex-col transition-all duration-300 group hover:-translate-y-1 ${
-                                    isHighlighted
-                                        ? 'bg-white/10 border-white/20 shadow-xl shadow-white/5'
-                                        : 'bg-white/5 border-white/8 hover:bg-white/8 hover:border-white/15'
-                                }`}
-                            >
-                                {/* Gradient overlay for highlighted */}
-                                {isHighlighted && (
-                                    <div className={`absolute inset-0 rounded-3xl bg-gradient-to-br ${model.color} opacity-10 pointer-events-none`} />
-                                )}
-
-                                {/* Top row */}
-                                <div className="flex items-start justify-between mb-5">
-                                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${model.color} flex items-center justify-center text-white shadow-lg`}>
-                                        {model.icon}
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1.5">
-                                        {model.badge && (
-                                            <span className="text-[10px] px-2.5 py-1 rounded-full bg-white/10 text-white/60 font-semibold uppercase tracking-wide">
-                                                {model.badge}
-                                            </span>
-                                        )}
-                                        {model.free && (
-                                            <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/20 uppercase tracking-wide">
-                                                Free
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Provider */}
-                                <span className={`inline-flex items-center self-start text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border mb-3 ${pc.bg} ${pc.text} ${pc.border}`}>
-                                    {model.provider}
-                                </span>
-
-                                {/* Name & desc */}
-                                <h3 className="text-white font-bold text-xl mb-2 tracking-tight">{model.name}</h3>
-                                <p className="text-white/40 text-sm leading-relaxed mb-5 flex-1">{model.description}</p>
-
-                                {/* Features */}
-                                <ul className="space-y-2 mb-6">
-                                    {model.features.map(f => (
-                                        <li key={f} className="flex items-center gap-2 text-white/60 text-sm">
-                                            <div className={`w-4 h-4 rounded-full bg-gradient-to-br ${model.color} flex items-center justify-center shrink-0`}>
-                                                <Check className="w-2.5 h-2.5 text-white" />
-                                            </div>
-                                            {f}
-                                        </li>
-                                    ))}
-                                </ul>
-
-                                {/* Pricing + CTA */}
-                                <div className="border-t border-white/10 pt-5 flex items-center justify-between">
-                                    <div>
-                                        {model.free ? (
-                                            <span className="text-white font-bold text-2xl">Free</span>
-                                        ) : (
-                                            <div>
-                                                <span className="text-white font-bold text-2xl">{model.pricing}</span>
-                                                <span className="text-white/30 text-xs ml-1">{model.pricingDetail}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <button
-                                        onClick={() => navigate('/app')}
-                                        className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all bg-gradient-to-r ${model.color} text-white hover:opacity-90 hover:scale-105 shadow-lg`}
-                                    >
-                                        Use it <ArrowUpRight className="w-3.5 h-3.5" />
-                                    </button>
-                                </div>
-                            </motion.div>
-                        );
-                    })}
-
-                    {/* Custom model card */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.5, delay: MODELS.length * 0.08 }}
-                        className="rounded-3xl p-6 border border-dashed border-white/15 bg-white/3 flex flex-col items-center justify-center text-center gap-4 hover:border-white/30 hover:bg-white/5 transition-all duration-300 cursor-pointer group min-h-[280px]"
-                        onClick={() => navigate('/app')}
-                    >
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-400 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
-                            <Sparkles className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <h3 className="text-white font-bold text-lg mb-1">Bring your own model</h3>
-                            <p className="text-white/40 text-sm">Use any model ID with your own API key. Gemini, GPT, Claude, or anything else.</p>
-                        </div>
-                        <span className="flex items-center gap-1.5 text-white/50 text-sm font-medium group-hover:text-white transition-colors">
-                            Get started <ArrowRight className="w-4 h-4" />
-                        </span>
-                    </motion.div>
-                </div>
             </div>
         </section>
     );

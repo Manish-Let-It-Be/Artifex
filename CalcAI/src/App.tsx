@@ -5,22 +5,32 @@ import '@tldraw/tldraw/tldraw.css';
 
 import Home from '@/screens/home';
 import Landing from '@/screens/landing';
-import Board from '@/screens/board';
 
 import '@/index.css';
 
 const paths = [
-    { path: '/', element: <Landing /> },
-    { path: '/app', element: <Home /> },
-    { path: '/board', element: <Board /> },
+    {
+        path: '/',
+        element: (
+          <Landing/>
+        ),
+    },
+    {
+        path: '/app',
+        element: (
+          <Home/>
+        ),
+    },
 ];
 
 const BrowserRouter = createBrowserRouter(paths);
 
-const App = () => (
+const App = () => {
+    return (
     <MantineProvider>
-        <RouterProvider router={BrowserRouter} />
+      <RouterProvider router={BrowserRouter}/>
     </MantineProvider>
-);
+    )
+};
 
 export default App;
