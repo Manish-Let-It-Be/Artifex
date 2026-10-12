@@ -6,7 +6,7 @@ export interface ModelConfig {
     name: string;
     provider: 'Google' | 'OpenAI' | 'Anthropic' | 'Custom';
     description: string;
-    pricing: string;
+    pricing?: string;
     pricingDetail?: string;
     priceUSD?: number;
     free: boolean;
@@ -19,8 +19,8 @@ export interface ModelConfig {
 
 export const MODELS: ModelConfig[] = [
     {
-        id: 'gemini-2.0-flash',
-        name: 'Gemini 2.0 Flash',
+        id: 'gemini-3.5-flash-lite',
+        name: 'Gemini 3.5 Flash Lite',
         provider: 'Google',
         description: 'Fast, capable, and free. Perfect for everyday math and equations.',
         pricing: 'Free',
@@ -37,6 +37,8 @@ export const MODELS: ModelConfig[] = [
         name: 'Gemini 2.5 Pro',
         provider: 'Google',
         description: 'Google\'s most powerful model. Handles complex calculus and proofs.',
+        pricing: 'Pay-as-you-go',
+        pricingDetail: 'with your Google API key',
         free: false,
         requiresKey: true,
         badge: 'Most Powerful',
@@ -278,7 +280,7 @@ export default function ModelPicker({ selected, apiKey, onSelect, onClose }: Pro
                     <div className="px-4 pb-2 space-y-2">
                         <input
                             type="text"
-                            placeholder="Model ID  (e.g. gemini-2.0-flash, gpt-4o)"
+                            placeholder="Model ID  (e.g. gemini-3.5-flash-lite, gpt-4o)"
                             value={customId}
                             onChange={e => { setCustomId(e.target.value); setKeyError(false); }}
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30"

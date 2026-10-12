@@ -33,7 +33,7 @@ def ask_ai(
     question: str,
     img: Optional[Image.Image],
     history: List[Tuple[str, str]],
-    model_id: str = "gemini-2.0-flash",
+    model_id: str = "gemini-3.5-flash-lite",
     api_key: str = None
 ) -> str:
     used_key = api_key or GEMINI_API_KEY

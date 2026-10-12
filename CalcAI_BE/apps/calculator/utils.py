@@ -27,16 +27,63 @@
 #         print(text.split("ASSISTANT:")[-1])
 
 from google import genai
-from google.genai import types
+from google.genai import types, errors
 import ast
 import json
+import re
+import time
 from PIL import Image
 from constants import GEMINI_API_KEY
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
+
+def _call_model(model_id: str, api_key: str, prompt: str, img: Image.Image) -> str:
+    c = genai.Client(api_key=api_key or GEMINI_API_KEY)
+    response = c.models.generate_content(
+        model=model_id,
+        contents=[prompt, img]
+    )
+    return response.text
+
+
+def _clean_and_parse_response(text: str):
+    raw = text.strip()
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        raw = "\n".join(lines).strip()
+
+    try:
+        return ast.literal_eval(raw)
+    except Exception:
+        pass
+
+    try:
+        return json.loads(raw)
+    except Exception:
+        pass
+
+    match = re.search(r'\[.*\]', raw, re.DOTALL)
+    if match:
+        matched_str = match.group(0)
+        try:
+            return json.loads(matched_str)
+        except Exception:
+            pass
+        try:
+            return ast.literal_eval(matched_str)
+        except Exception:
+            pass
+
+    return []
+
+
 def analyze_image(img: Image, dict_of_vars: dict):
-    model = "gemini-flash-latest"
+    model = "gemini-3.5-flash-lite"
     dict_of_vars_str = json.dumps(dict_of_vars, ensure_ascii=False)
     prompt = (
         f"Analyze the equation or expression in this image and return the answer according to the given rules: "
@@ -64,20 +111,25 @@ def analyze_image(img: Image, dict_of_vars: dict):
         f"DO NOT USE BACKTICKS OR MARKDOWN FORMATTING. "
         f"PROPERLY QUOTE THE KEYS AND VALUES IN THE DICTIONARY FOR EASIER PARSING WITH Python's ast.literal_eval."
     )
-    response = client.models.generate_content(
-        model=model,
-        contents=[prompt, img]
-    )
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=[prompt, img]
+            )
+            break
+        except errors.ServerError as e:
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+            else:
+                raise
     print(response.text)
-    answers = []
-    try:
-        answers = ast.literal_eval(response.text)
-    except Exception as e:
-        print(f"Error in parsing response from Gemini API: {e}")
+    answers = _clean_and_parse_response(response.text)
     print('returned answer ', answers)
     for answer in answers:
-        if 'assign' in answer:
-            answer['assign'] = True
-        else:
-            answer['assign'] = False
+        if isinstance(answer, dict):
+            if 'assign' in answer:
+                answer['assign'] = bool(answer['assign'])
+            else:
+                answer['assign'] = False
     return answers

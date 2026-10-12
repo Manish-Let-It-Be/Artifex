@@ -16,7 +16,7 @@ class AskData(BaseModel):
     question: str
     image: Optional[str] = None
     history: Optional[List[Message]] = []
-    model_id: Optional[str] = "gemini-2.0-flash"
+    model_id: Optional[str] = "gemini-3.5-flash-lite"
     api_key: Optional[str] = None
 
 @router.post('')
@@ -31,7 +31,7 @@ async def ask(data: AskData):
             question=data.question,
             img=img,
             history=[(m.role, m.content) for m in (data.history or [])],
-            model_id=data.model_id or "gemini-2.0-flash",
+            model_id=data.model_id or "gemini-3.5-flash-lite",
             api_key=data.api_key
         )
         return {"answer": result, "status": "success"}
