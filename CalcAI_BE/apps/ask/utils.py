@@ -33,8 +33,10 @@ def ask_ai(
     question: str,
     img: Optional[Image.Image],
     history: List[Tuple[str, str]],
+    provider: str = "gemini",
     model_id: str = "gemini-3.5-flash-lite",
-    api_key: str = None
+    api_key: str = None,
+    base_url: str = None
 ) -> str:
     used_key = api_key or GEMINI_API_KEY
     history_text = build_history_text(history)
@@ -43,4 +45,11 @@ def ask_ai(
     if img is None:
         img = Image.new("RGB", (1, 1), color="white")
 
-    return _call_model(model_id, used_key, prompt, img)
+    return _call_model(
+        model_id=model_id,
+        api_key=used_key,
+        prompt=prompt,
+        img=img,
+        provider=provider,
+        base_url=base_url
+    )

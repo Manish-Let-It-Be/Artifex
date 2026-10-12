@@ -35,6 +35,7 @@ export default function Board() {
     const [modelPickerOpen, setModelPickerOpen] = useState(false);
     const [selectedModel, setSelectedModel] = useState<ModelConfig>(MODELS[0]);
     const [modelApiKey, setModelApiKey] = useState('');
+    const [modelBaseUrl, setModelBaseUrl] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -90,8 +91,10 @@ export default function Board() {
                 question,
                 image: imgToSend ?? undefined,
                 history,
+                provider: selectedModel.provider.toLowerCase(),
                 model_id: selectedModel.id,
                 api_key: modelApiKey || undefined,
+                base_url: selectedModel.baseUrl || modelBaseUrl || undefined,
             });
 
             setMessages(prev => prev.map(m =>
@@ -109,7 +112,7 @@ export default function Board() {
         } finally {
             setIsLoading(false);
         }
-    }, [input, pendingImage, messages, selectedModel, modelApiKey]);
+    }, [input, pendingImage, messages, selectedModel, modelApiKey, modelBaseUrl]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -246,7 +249,12 @@ export default function Board() {
                 <ModelPicker
                     selected={selectedModel}
                     apiKey={modelApiKey}
-                    onSelect={(m, k) => { setSelectedModel(m); setModelApiKey(k); }}
+                    baseUrl={modelBaseUrl}
+                    onSelect={(m, k, b) => { 
+                        setSelectedModel(m); 
+                        setModelApiKey(k); 
+                        if (b) setModelBaseUrl(b);
+                    }}
                     onClose={() => setModelPickerOpen(false)}
                 />
             )}

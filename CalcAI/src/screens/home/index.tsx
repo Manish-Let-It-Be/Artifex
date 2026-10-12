@@ -1,7 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { SWATCHES } from '@/constants';
+import ModelPicker, { ModelConfig, MODELS } from '@/components/ModelPicker';
 import { 
     Eraser, 
     Pencil, 
@@ -14,7 +16,12 @@ import {
     Trash2,
     X,
     ChevronLeft,
-    Loader2
+    Loader2,
+    ChevronDown,
+    Sparkles,
+    AlertCircle,
+    Copy,
+    Check
 } from 'lucide-react';
 
 // --- Types ---
@@ -81,6 +88,45 @@ export default function Home() {
     
     // UI State
     const [isPanelOpen, setIsPanelOpen] = useState(false);
+    const [isModelPickerOpen, setIsModelPickerOpen] = useState(false);
+    const [calcError, setCalcError] = useState<string | null>(null);
+    const [copiedErrorCmd, setCopiedErrorCmd] = useState(false);
+
+    const navigate = useNavigate();
+
+    // Model selection state with localStorage persistence
+    const [selectedModel, setSelectedModel] = useState<ModelConfig>(() => {
+        try {
+            const saved = localStorage.getItem('calcai_model');
+            if (saved) return JSON.parse(saved);
+        } catch (e) {
+            console.debug('Failed to load saved model:', e);
+        }
+        return MODELS[0];
+    });
+
+    const [modelApiKey, setModelApiKey] = useState<string>(() => {
+        return localStorage.getItem('calcai_api_key') || '';
+    });
+
+    const [modelBaseUrl, setModelBaseUrl] = useState<string>(() => {
+        return localStorage.getItem('calcai_base_url') || '';
+    });
+
+    const handleModelSelect = (model: ModelConfig, key: string, customBaseUrl?: string) => {
+        setSelectedModel(model);
+        setModelApiKey(key);
+        setModelBaseUrl(customBaseUrl || '');
+        setCalcError(null);
+        try {
+            localStorage.setItem('calcai_model', JSON.stringify(model));
+            localStorage.setItem('calcai_api_key', key);
+            if (customBaseUrl) localStorage.setItem('calcai_base_url', customBaseUrl);
+            else localStorage.removeItem('calcai_base_url');
+        } catch (e) {
+            console.debug('Failed to save model settings:', e);
+        }
+    };
 
     // --- Helpers defined before use in renderCanvas ---
     
@@ -359,6 +405,7 @@ export default function Home() {
         if (!canvas) return;
 
         setIsProcessing(true);
+        setCalcError(null);
 
         try {
             // 1. HIDE GRID: Clear canvas and redraw ONLY strokes/shapes (No Grid)
@@ -385,26 +432,35 @@ export default function Home() {
             const response = await axios.post(`${import.meta.env.VITE_API_URL}/calculate`, {
                 image: base64Image,
                 dict_of_vars: dictOfVars,
+                provider: selectedModel.provider.toLowerCase(),
+                model_id: selectedModel.id,
+                api_key: modelApiKey || undefined,
+                base_url: selectedModel.baseUrl || modelBaseUrl || undefined,
             });
 
             const resp = response.data;
-            
-            resp.data.forEach((data: Response) => {
-                if (data.assign) {
-                    setDictOfVars(prev => ({ ...prev, [data.expr]: data.result }));
-                }
-            });
+            if (resp.data && resp.data.length > 0) {
+                resp.data.forEach((data: Response) => {
+                    if (data.assign) {
+                        setDictOfVars(prev => ({ ...prev, [data.expr]: data.result }));
+                    }
+                });
 
-            resp.data.forEach((data: Response) => {
-                const latex = `({${data.expr} = ${data.result}})`;
-                // NEW LINE (Allows conversational text)
-                //const latex = data.result;
-                setLatexExpression(prev => [...prev, latex]);
-            });
+                resp.data.forEach((data: Response) => {
+                    const latex = `({${data.expr} = ${data.result}})`;
+                    setLatexExpression(prev => [...prev, latex]);
+                });
+            } else {
+                setLatexExpression(prev => [...prev, "No expression or equation detected."]);
+            }
 
             setIsPanelOpen(true);
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('API Error:', error);
+            const errResponse = (error as { response?: { data?: { message?: string } }; message?: string });
+            const msg = errResponse?.response?.data?.message || errResponse?.message || 'Error processing math expression.';
+            setCalcError(msg);
+            setIsPanelOpen(true);
         } finally {
             setIsProcessing(false);
         }
@@ -429,11 +485,41 @@ export default function Home() {
 
             {/* --- Top Bar (Logo & Primary Actions) --- */}
             <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 pointer-events-none">
-                <div className="bg-white/90 backdrop-blur-md shadow-sm border border-gray-200 rounded-full px-4 py-2 pointer-events-auto flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full bg-red-500" />
-                    <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                    <div className="w-3 h-3 rounded-full bg-green-500" />
-                    <span className="text-sm font-semibold text-gray-700 ml-2">Math Board</span>
+                <div className="flex items-center gap-2 pointer-events-auto">
+                    <div className="bg-white/90 backdrop-blur-md shadow-sm border border-gray-200 rounded-full px-4 py-2 flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full bg-red-500" />
+                        <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                        <div className="w-3 h-3 rounded-full bg-green-500" />
+                        <span className="text-sm font-semibold text-gray-700 ml-1">Math Board</span>
+                    </div>
+
+                    {/* Model Selector Pill Button */}
+                    <button
+                        onClick={() => setIsModelPickerOpen(true)}
+                        className="bg-white/90 backdrop-blur-md shadow-sm border border-gray-200 hover:border-gray-300 rounded-full px-3.5 py-2 flex items-center gap-2 text-xs font-medium text-gray-700 hover:text-gray-900 transition-all group"
+                        title="Change AI Model & Provider"
+                    >
+                        <span className={`w-2 h-2 rounded-full ${
+                            selectedModel.provider === 'Ollama' 
+                                ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50 ring-2 ring-emerald-200' 
+                                : (selectedModel.provider === 'Google' ? 'bg-blue-500' : 'bg-purple-500')
+                        }`} />
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                            {selectedModel.provider === 'Ollama' ? 'Ollama Local' : selectedModel.provider}
+                        </span>
+                        <span className="max-w-[120px] sm:max-w-[160px] truncate font-semibold">{selectedModel.name}</span>
+                        <ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 transition-transform group-hover:translate-y-0.5" />
+                    </button>
+
+                    {/* Switch to AI Board */}
+                    <button
+                        onClick={() => navigate('/board')}
+                        className="bg-white/80 backdrop-blur-md border border-gray-200 hover:bg-white rounded-full px-3.5 py-2 flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900 transition-all shadow-sm"
+                        title="Switch to AI Chat Board"
+                    >
+                        <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+                        <span className="hidden sm:inline font-medium">AI Board</span>
+                    </button>
                 </div>
 
                 <div className="flex gap-2 pointer-events-auto">
@@ -577,7 +663,34 @@ export default function Home() {
                     
                     {/* Results Content */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                        {latexExpression.length === 0 ? (
+                        {calcError ? (
+                            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 space-y-3">
+                                <div className="flex items-center gap-2 font-semibold text-amber-900 text-sm">
+                                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                                    <span>Model Notice</span>
+                                </div>
+                                <p className="text-xs leading-relaxed whitespace-pre-wrap font-sans text-amber-800">
+                                    {calcError}
+                                </p>
+                                {calcError.includes('ollama run') && (
+                                    <div className="pt-1">
+                                        <button
+                                            onClick={() => {
+                                                const match = calcError.match(/ollama run \w+/);
+                                                const cmd = match ? match[0] : 'ollama run llava';
+                                                navigator.clipboard.writeText(cmd);
+                                                setCopiedErrorCmd(true);
+                                                setTimeout(() => setCopiedErrorCmd(false), 2000);
+                                            }}
+                                            className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                                        >
+                                            {copiedErrorCmd ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                            <span>{copiedErrorCmd ? 'Command Copied to Clipboard!' : 'Copy "ollama run llava"'}</span>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ) : latexExpression.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-gray-400 opacity-50">
                                 <Calculator className="w-12 h-12 mb-2" />
                                 <p>Draw an equation and hit Calculate</p>
@@ -599,13 +712,24 @@ export default function Home() {
             </div>
 
             {/* Panel Toggle Button (When closed) */}
-            {!isPanelOpen && latexExpression.length > 0 && (
+            {!isPanelOpen && (latexExpression.length > 0 || calcError) && (
                 <Button
                     onClick={() => setIsPanelOpen(true)}
                     className="absolute top-1/2 right-0 transform -translate-y-1/2 rounded-l-full bg-white shadow-md border-l border-y border-gray-200 text-gray-600 z-10 pl-2 pr-4 py-6"
                 >
                     <ChevronLeft className="w-5 h-5" />
                 </Button>
+            )}
+
+            {/* Model Picker Modal */}
+            {isModelPickerOpen && (
+                <ModelPicker
+                    selected={selectedModel}
+                    apiKey={modelApiKey}
+                    baseUrl={modelBaseUrl}
+                    onSelect={handleModelSelect}
+                    onClose={() => setIsModelPickerOpen(false)}
+                />
             )}
 
         </div>

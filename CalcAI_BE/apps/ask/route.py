@@ -16,8 +16,10 @@ class AskData(BaseModel):
     question: str
     image: Optional[str] = None
     history: Optional[List[Message]] = []
+    provider: Optional[str] = "gemini"
     model_id: Optional[str] = "gemini-3.5-flash-lite"
     api_key: Optional[str] = None
+    base_url: Optional[str] = None
 
 @router.post('')
 async def ask(data: AskData):
@@ -31,8 +33,10 @@ async def ask(data: AskData):
             question=data.question,
             img=img,
             history=[(m.role, m.content) for m in (data.history or [])],
+            provider=data.provider or "gemini",
             model_id=data.model_id or "gemini-3.5-flash-lite",
-            api_key=data.api_key
+            api_key=data.api_key,
+            base_url=data.base_url
         )
         return {"answer": result, "status": "success"}
     except Exception as e:
